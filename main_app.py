@@ -19,23 +19,52 @@ st.title("📊 Análisis de Datos - Energía Renovable")
 st.markdown("---")
 
 # Sidebar
+st.sidebar.header("📁 Carga de Datos")
+
+# Opción para cargar datos
+opcion_carga = st.sidebar.radio(
+    "¿Cómo deseas cargar los datos?",
+    ["Usar archivo predeterminado", "Cargar mi propio archivo"]
+)
+
+df = None
+
+if opcion_carga == "Cargar mi propio archivo":
+    uploaded_file = st.sidebar.file_uploader(
+        "Sube tu archivo CSV",
+        type=["csv"],
+        help="Selecciona un archivo CSV para analizar"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            st.sidebar.success("✅ Archivo cargado exitosamente")
+        except Exception as e:
+            st.sidebar.error(f"❌ Error al cargar el archivo: {e}")
+    else:
+        st.sidebar.info("👆 Por favor, sube un archivo CSV para comenzar")
+else:
+    # Cargar datos predeterminados
+    @st.cache_data
+    def cargar_datos():
+        try:
+            df = pd.read_csv("energia_renovable.csv")
+            return df
+        except Exception as e:
+            st.error(f"Error al cargar el archivo: {e}")
+            return None
+    
+    df = cargar_datos()
+    if df is not None:
+        st.sidebar.success("✅ Usando archivo predeterminado")
+
+st.sidebar.markdown("---")
 st.sidebar.header("Opciones de Análisis")
 opcion = st.sidebar.selectbox(
     "Selecciona una sección:",
     ["Exploración de Datos", "Visualización", "Análisis Estadístico", "Modelado"]
 )
-
-# Cargar datos
-@st.cache_data
-def cargar_datos():
-    try:
-        df = pd.read_csv("energia_renovable.csv")
-        return df
-    except Exception as e:
-        st.error(f"Error al cargar el archivo: {e}")
-        return None
-
-df = cargar_datos()
 
 if df is not None:
     # Sección: Exploración de Datos
