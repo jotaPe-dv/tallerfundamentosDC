@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from groq import Groq
 import os
 
 # Configuración de la página
@@ -20,6 +21,16 @@ st.set_page_config(
 # Estilo de gráficos
 sns.set_style("whitegrid")
 plt.rcParams['figure.dpi'] = 100
+
+# Configurar Groq API (usando secrets de Streamlit)
+try:
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+    if GROQ_API_KEY:
+        client = Groq(api_key=GROQ_API_KEY)
+    else:
+        client = None
+except:
+    client = None
 
 # Título principal
 st.title("📊 Análisis Exploratorio de Datos (EDA)")
@@ -85,7 +96,7 @@ if df is not None:
     opcion = st.sidebar.selectbox(
         "Selecciona una sección:",
         ["📋 Resumen General", "🔍 Exploración Detallada", "📈 Visualizaciones Avanzadas", 
-         "🔗 Análisis de Relaciones", "📊 Distribuciones", "🤖 Preparación para Modelado"]
+         "🔗 Análisis de Relaciones", "📊 Distribuciones", "🤖 Preparación para Modelado", "🤖 Asistente IA"]
     )
     
     # Identificar tipos de columnas
@@ -633,8 +644,161 @@ if df is not None:
                         st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Se necesitan al menos 2 variables numéricas para preparación de modelado")
+    
+    # ============= ASISTENTE IA =============
+    elif opcion == "🤖 Asistente IA":
+        st.header("🤖 Asistente IA - Análisis de Datos")
+        st.markdown("Haz preguntas sobre tus datos y obtén insights inteligentes usando IA")
+        
+        # Verificar si Groq está configurado
+        if client is None:
+            st.error("⚠️ El Asistente IA no está configurado. Por favor, configura la API key de Groq en Streamlit Secrets.")
+            st.info("""
+            **Para configurar el Asistente IA:**
+            1. Ve a la configuración de tu app en Streamlit Cloud
+            2. En la sección 'Secrets', agrega:
+            ```
+            GROQ_API_KEY = "tu_api_key_aqui"
+            ```
+            """)
+            st.stop()
+        
+        # Inicializar historial de chat
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+        
+        # Preparar información del dataset para el contexto
+        dataset_info = f"""
+**Información del Dataset:**
+- Total de filas: {df.shape[0]}
+- Total de columnas: {df.shape[1]}
+- Columnas numéricas: {', '.join(columnas_numericas) if columnas_numericas else 'Ninguna'}
+- Columnas categóricas: {', '.join(columnas_categoricas) if columnas_categoricas else 'Ninguna'}
+- Valores nulos totales: {df.isnull().sum().sum()}
+
+**Estadísticas de columnas numéricas:**
+{df[columnas_numericas].describe().to_string() if columnas_numericas else 'No hay columnas numéricas'}
+
+**Primeras filas del dataset:**
+{df.head(5).to_string()}
+
+**Información de valores nulos por columna:**
+{df.isnull().sum().to_string()}
+"""
+        
+        # Mostrar información del dataset en un expander
+        with st.expander("📊 Ver información del dataset"):
+            st.text(dataset_info)
+        
+        # Mostrar historial de mensajes
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+        
+        # Input del usuario
+        if prompt := st.chat_input("Haz una pregunta sobre tus datos..."):
+            # Agregar mensaje del usuario al historial
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Generar respuesta del asistente
+            with st.chat_message("assistant"):
+                with st.spinner("Analizando..."):
+                    try:
+                        # Preparar el contexto del sistema
+                        system_message = f"""Eres un asistente experto en análisis de datos. Tienes acceso a la siguiente información sobre el dataset del usuario:
+
+{dataset_info}
+
+Tu trabajo es responder preguntas sobre estos datos de manera clara, precisa y útil. Puedes:
+- Explicar patrones y tendencias
+- Sugerir análisis adicionales
+- Interpretar estadísticas
+- Recomendar visualizaciones
+- Identificar insights importantes
+- Responder preguntas sobre las columnas y sus relaciones
+
+Sé conciso pero informativo. Usa emojis cuando sea apropiado para hacer tus respuestas más amigables."""
+
+                        # Preparar mensajes para la API
+                        messages = [
+                            {"role": "system", "content": system_message}
+                        ]
+                        
+                        # Agregar historial reciente (últimos 6 mensajes)
+                        for msg in st.session_state.messages[-6:]:
+                            messages.append({
+                                "role": msg["role"],
+                                "content": msg["content"]
+                            })
+                        
+                        # Llamar a la API de Groq
+                        response = client.chat.completions.create(
+                            model="llama-3.3-70b-versatile",
+                            messages=messages,
+                            temperature=0.7,
+                            max_tokens=1024,
+                            top_p=1,
+                            stream=False
+                        )
+                        
+                        # Obtener respuesta
+                        assistant_response = response.choices[0].message.content
+                        
+                        # Mostrar respuesta
+                        st.markdown(assistant_response)
+                        
+                        # Agregar al historial
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": assistant_response
+                        })
+                        
+                    except Exception as e:
+                        st.error(f"❌ Error al comunicarse con el asistente: {str(e)}")
+        
+        # Botón para limpiar historial
+        if st.button("🗑️ Limpiar conversación"):
+            st.session_state.messages = []
+            st.rerun()
+        
+        # Sugerencias de preguntas
+        st.markdown("---")
+        st.markdown("**💡 Preguntas sugeridas:**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("¿Cuáles son las principales características del dataset?"):
+                st.session_state.messages.append({
+                    "role": "user", 
+                    "content": "¿Cuáles son las principales características del dataset?"
+                })
+                st.rerun()
+            
+            if st.button("¿Qué variables están más correlacionadas?"):
+                st.session_state.messages.append({
+                    "role": "user", 
+                    "content": "¿Qué variables están más correlacionadas?"
+                })
+                st.rerun()
+        
+        with col2:
+            if st.button("¿Hay valores atípicos en los datos?"):
+                st.session_state.messages.append({
+                    "role": "user", 
+                    "content": "¿Hay valores atípicos en los datos?"
+                })
+                st.rerun()
+            
+            if st.button("¿Qué análisis me recomiendas hacer?"):
+                st.session_state.messages.append({
+                    "role": "user", 
+                    "content": "¿Qué análisis me recomiendas hacer con estos datos?"
+                })
+                st.rerun()
 
 # Footer
 st.markdown("---")
 st.markdown("### 💻 Desarrollado con Streamlit 🎈")
-st.markdown("*Aplicación multimodal para análisis exploratorio de datos*")
+st.markdown("*Aplicación multimodal para análisis exploratorio de datos con IA*")
