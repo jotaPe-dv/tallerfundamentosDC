@@ -213,7 +213,7 @@ if df is not None:
             unicos_df = pd.DataFrame({
                 'Columna': df.columns,
                 'Valores Únicos': [df[col].nunique() for col in df.columns],
-                'Porcentaje': [(df[col].nunique() / len(df) * 100).round(2) for col in df.columns]
+                'Porcentaje': [round(df[col].nunique() / len(df) * 100, 2) for col in df.columns]
             }).sort_values('Valores Únicos', ascending=False)
             
             fig = px.bar(unicos_df, x='Columna', y='Valores Únicos',
