@@ -379,20 +379,39 @@ if df is not None:
                     color_var = 'Ninguno'
                 
                 if x_var and y_var:
-                    if color_var != 'Ninguno':
-                        fig = px.scatter(df, x=x_var, y=y_var, color=color_var,
-                                       title=f'{y_var} vs {x_var}',
-                                       trendline="ols")
-                    else:
-                        fig = px.scatter(df, x=x_var, y=y_var,
-                                       title=f'{y_var} vs {x_var}',
-                                       trendline="ols")
+                    # Checkbox para línea de tendencia
+                    mostrar_tendencia = st.checkbox("Mostrar línea de tendencia", value=True)
                     
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Calcular correlación
-                    corr = df[[x_var, y_var]].corr().iloc[0, 1]
-                    st.info(f"📊 Correlación de Pearson: **{corr:.3f}**")
+                    try:
+                        if color_var != 'Ninguno':
+                            fig = px.scatter(df, x=x_var, y=y_var, color=color_var,
+                                           title=f'{y_var} vs {x_var}',
+                                           trendline="ols" if mostrar_tendencia else None)
+                        else:
+                            fig = px.scatter(df, x=x_var, y=y_var,
+                                           title=f'{y_var} vs {x_var}',
+                                           trendline="ols" if mostrar_tendencia else None)
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Calcular correlación
+                        corr = df[[x_var, y_var]].corr().iloc[0, 1]
+                        st.info(f"📊 Correlación de Pearson: **{corr:.3f}**")
+                    except Exception as e:
+                        # Si falla con trendline, graficar sin él
+                        st.warning("⚠️ No se pudo calcular la línea de tendencia")
+                        if color_var != 'Ninguno':
+                            fig = px.scatter(df, x=x_var, y=y_var, color=color_var,
+                                           title=f'{y_var} vs {x_var}')
+                        else:
+                            fig = px.scatter(df, x=x_var, y=y_var,
+                                           title=f'{y_var} vs {x_var}')
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Calcular correlación
+                        corr = df[[x_var, y_var]].corr().iloc[0, 1]
+                        st.info(f"📊 Correlación de Pearson: **{corr:.3f}**")
             
             with tabs[2]:
                 st.subheader("📈 Pairplot (Análisis Multivariado)")
