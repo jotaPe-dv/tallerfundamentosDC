@@ -242,7 +242,7 @@ if df is not None:
         
         if columnas_numericas:
             tipo_viz = st.radio("Selecciona el tipo de visualización:",
-                               ["Histogramas", "Boxplots", "Violin Plots", "Gráficos de Densidad"])
+                               ["Histogramas", "Boxplots", "Violin Plots", "Scatter Plots", "Gráficos de Densidad"])
             
             if tipo_viz == "Histogramas":
                 st.subheader("📊 Distribución - Histogramas")
@@ -310,6 +310,79 @@ if df is not None:
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
                     plt.close()
+            
+            elif tipo_viz == "Scatter Plots":
+                st.subheader("🔵 Scatter Plots - Relación entre Variables")
+                
+                if len(columnas_numericas) >= 2:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        x_var = st.selectbox("Variable X:", columnas_numericas, key='viz_scatter_x')
+                    with col2:
+                        y_var = st.selectbox("Variable Y:", 
+                                            [c for c in columnas_numericas if c != x_var],
+                                            key='viz_scatter_y')
+                    
+                    # Opción de color
+                    use_color = st.checkbox("Colorear por variable categórica", value=False)
+                    color_var = None
+                    
+                    if use_color and columnas_categoricas:
+                        color_var = st.selectbox("Variable de color:", columnas_categoricas)
+                    
+                    # Opciones de tamaño
+                    use_size = st.checkbox("Variar tamaño por variable", value=False)
+                    size_var = None
+                    
+                    if use_size and len(columnas_numericas) >= 3:
+                        size_var = st.selectbox("Variable de tamaño:", 
+                                               [c for c in columnas_numericas if c not in [x_var, y_var]])
+                    
+                    if x_var and y_var:
+                        # Crear scatter plot
+                        try:
+                            if color_var and size_var:
+                                fig = px.scatter(df, x=x_var, y=y_var, color=color_var, size=size_var,
+                                               title=f'{y_var} vs {x_var}',
+                                               hover_data=df.columns)
+                            elif color_var:
+                                fig = px.scatter(df, x=x_var, y=y_var, color=color_var,
+                                               title=f'{y_var} vs {x_var}',
+                                               hover_data=df.columns)
+                            elif size_var:
+                                fig = px.scatter(df, x=x_var, y=y_var, size=size_var,
+                                               title=f'{y_var} vs {x_var}',
+                                               hover_data=df.columns)
+                            else:
+                                fig = px.scatter(df, x=x_var, y=y_var,
+                                               title=f'{y_var} vs {x_var}',
+                                               hover_data=df.columns)
+                            
+                            fig.update_layout(height=600)
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Mostrar estadísticas
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                corr = df[[x_var, y_var]].corr().iloc[0, 1]
+                                st.metric("Correlación", f"{corr:.3f}")
+                            with col2:
+                                st.metric("Puntos Válidos", len(df[[x_var, y_var]].dropna()))
+                            with col3:
+                                # Clasificar correlación
+                                if abs(corr) > 0.7:
+                                    fuerza = "Fuerte"
+                                elif abs(corr) > 0.4:
+                                    fuerza = "Moderada"
+                                else:
+                                    fuerza = "Débil"
+                                st.metric("Fuerza", fuerza)
+                            
+                        except Exception as e:
+                            st.error(f"Error al crear el gráfico: {str(e)}")
+                else:
+                    st.warning("Se necesitan al menos 2 variables numéricas para scatter plots")
             
             elif tipo_viz == "Gráficos de Densidad":
                 st.subheader("📈 Gráficos de Densidad (KDE)")
